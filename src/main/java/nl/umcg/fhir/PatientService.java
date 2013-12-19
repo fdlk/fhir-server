@@ -1,13 +1,20 @@
 package nl.umcg.fhir;
 
-import nl.umcg.fhir.model.datatype.HumanName;
-import nl.umcg.fhir.model.datatype.Address.AddressUse;
-import nl.umcg.fhir.model.datatype.Identifier.IdentifierUse;
-import nl.umcg.fhir.model.datatype.codeableconcept.AdministrativeGender;
-import nl.umcg.fhir.model.resource.Narrative;
-import nl.umcg.fhir.model.resource.Patient;
-import nl.umcg.fhir.model.resource.Reference;
+import java.text.ParseException;
 
+import org.hl7.fhir.instance.model.Address.AddressUse;
+import org.hl7.fhir.instance.model.Boolean;
+import org.hl7.fhir.instance.model.CodeableConcept;
+import org.hl7.fhir.instance.model.Coding;
+import org.hl7.fhir.instance.model.DateAndTime;
+import org.hl7.fhir.instance.model.HumanName;
+import org.hl7.fhir.instance.model.Identifier.IdentifierUse;
+import org.hl7.fhir.instance.model.Narrative.NarrativeStatus;
+import org.hl7.fhir.instance.model.Narrative;
+import org.hl7.fhir.instance.model.Patient;
+import org.hl7.fhir.instance.model.ResourceReference;
+import org.hl7.fhir.utilities.xhtml.XhtmlNode;
+import org.hl7.fhir.utilities.xhtml.XhtmlParser;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -20,23 +27,48 @@ public class PatientService {
 	@ResponseBody
 	public Patient getById(@PathVariable String nummer) {
 		Patient patient = new Patient();
-		Reference umcg = new Reference("UMCG");
-		patient.addIdentifier().setValue(nummer)
-				.setSystem("http://umcg.nl/mrn").setLabel("UMCG nummer")
-				.setUse(IdentifierUse.official).setAssigner(umcg);
-		patient.setActive(true);
-		patient.setDeceased(false);
-		patient.setGender(AdministrativeGender.MALE);
-		patient.setBirthDate("2013-08");
-		patient.addAddress().setUse(AddressUse.home).addLine("Hanzeplein 1").setZip("9700 AB")
-				.setCity("Groningen");
+		ResourceReference umcg = new ResourceReference()
+				.setReferenceSimple("UMCG");
+		patient.addIdentifier().setValueSimple(nummer)
+				.setSystemSimple("http://umcg.nl/mrn")
+				.setLabelSimple("UMCG nummer")
+				.setUseSimple(IdentifierUse.official).setAssigner(umcg);
+		patient.setActiveSimple(true);
+		Boolean deceased = new Boolean();
+		deceased.setValue(false);
+		patient.setDeceased(deceased);
+		CodeableConcept gender = new CodeableConcept();
+		gender.setTextSimple("Male");
+		Coding genderCoding = gender.addCoding();
+		genderCoding.setCodeSimple("M");
+		genderCoding.setDisplaySimple("Mannelijk");
+		genderCoding
+				.setSystemSimple("http://hl7.org/fhir/v3/AdministrativeGender");
+		patient.setGender(gender);
+		DateAndTime birthDate;
+		try {
+			birthDate = new DateAndTime("2013-08");
+			patient.setBirthDateSimple(birthDate);
+		} catch (ParseException e1) {
+			e1.printStackTrace();
+		}
+		patient.addAddress().setUseSimple(AddressUse.home)
+				.setZipSimple("9700 AB").setCitySimple("Groningen")
+				.addLineSimple("Hanzeplein 1");
 		HumanName name = patient.addName();
-		name.addGiven("Jan").addGiven("J.").addGiven("F.");
-		name.addFamily("Fictief");
-		name.setText("Jan J.F. Fictief");
-		patient.setText(new Narrative().setStatus("generated").setDiv(
-				name.getText() + " " + nummer));
+		name.addGivenSimple("Jan");
+		name.addGivenSimple("J.");
+		name.addGivenSimple("F.");
+		name.addFamilySimple("Fictief");
+		name.setTextSimple("Jan J.F. Fictief");
+		XhtmlNode narrativeNode;
+		try {
+			narrativeNode = new XhtmlParser().parseFragment("<div>"+name.getTextSimple() + " "+nummer+"</div>");
+			patient.setText(new Narrative().setStatusSimple(NarrativeStatus.generated)
+					.setDiv(narrativeNode));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		return patient;
 	}
-
 }
